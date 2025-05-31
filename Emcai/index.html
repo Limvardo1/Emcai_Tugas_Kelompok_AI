@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>🎨 Doodle Classifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  <script src="./training_model.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #6a89cc;
+      --secondary-color: #f1c40f;
+      --background-light: #fdfdfd;
+      --background-gradient-start: #e0eafc;
+      --background-gradient-end: #cfdef3;
+      --text-dark: #34495e;
+      --text-medium: #7f8c8d;
+      --panel-bg: #ffffff;
+      --panel-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      --border-color: #dcdcdc;
+      --button-hover: #5077b9;
+      --prediction-color: #e67e22;
+      --target-color: #c0392b;
+      --correct-color: #2ecc71;
+      --incorrect-color: #e74c3c;
+      --correct-color: #2ecc71;
+      --incorrect-color: #e74c3c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      overflow-x: hidden;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(to bottom right, var(--background-gradient-start), var(--background-gradient-end));
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 20px;
+    }
+
+    h1 {
+      font-size: 36px;
+      margin-bottom: 8px;
+      color: var(--primary-color);
+      font-weight: 700;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    p.sub {
+      font-size: 16px;
+      margin-bottom: 30px;
+      color: var(--text-medium);
+    }
+
+    .container {
+      display: flex;
+      gap: 30px;
+      padding: 20px;
+      max-width: 1600px;
+      width: 95%;
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: var(--panel-shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease-in-out;
+      height: auto;
+    }
+
+    .panel:hover {
+      transform: translateY(-5px);
+    }
+
+    .stats-panel {
+      width: 300px;
+      min-width: auto;
+    }
+
+    .stats-panel h3 {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 10px;
+    }
+
+    .stat {
+      font-size: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stat strong {
+      color: var(--text-dark);
+    }
+
+    .stat span {
+      font-weight: 600;
+      color: var(--primary-color);
+    }
+
+    .canvas-panel {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      justify-content: space-around;
+    }
+
+    canvas {
+      border-radius: 15px;
+      border: 3px dashed var(--border-color);
+      background-color: var(--background-light);
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+      transition: border-color 0.3s ease;
+      max-width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      width: 450px;
+      height: 450px;
+    }
+
+    canvas:hover {
+      border-color: var(--primary-color);
+    }
+
+    button {
+      background-color: var(--primary-color);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 10px 8px 0 0;
+      transition: background 0.3s ease, transform 0.2s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    button:hover {
+      background-color: var(--button-hover);
+      transform: translateY(-2px);
+    }
+
+    button#trainBtn {
+      background-color: var(--secondary-color);
+      color: var(--text-dark);
+    }
+
+    button#trainBtn:hover {
+      background-color: #d1a10c;
+    }
+
+    .prediction {
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--prediction-color);
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #fff8e1;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    #targetWord {
+      color: var(--target-color);
+      font-size: 28px;
+      font-weight: 700;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.05);
+        opacity: 0.9;
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #timer {
+      font-size: 20px;
+      margin-bottom: 10px;
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+
+    #skipBtn {
+      background-color: #f39c12;
+      color: white;
+      display: none;
+    }
+
+    #skipBtn:hover {
+      background-color: #e68a00;
+    }
+
+    .history-panel {
+      width: 300px;
+      min-width: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 10px;
+    }
+
+    .history-panel h3 {
+      font-size: 24px;
+      margin-bottom: 5px;
+      color: var(--primary-color);
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 5px;
+      width: 80%;
+      text-align: center;
+    }
+
+    .history-scroll-container {
+      position: relative;
+      width: 80%;
+      height: 650px;
+      overflow: hidden;
+      margin-bottom: 0;
+      margin-top: 0;
+    }
+
+    #historyList {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    #historyList::-webkit-scrollbar {
+      display: none;
+    }
+
+    .history-image {
+      width: 70px;
+      height: 70px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .history-image img {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .stats-panel,
+      .canvas-panel,
+      .history-panel {
+        width: 90%;
+        margin-bottom: 20px;
+      }
+
+      canvas {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+      }
+    }
+
+    .correct {
+      color: var(--correct-color);
+    }
+
+    .incorrect {
+      color: var(--incorrect-color);
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🎨 Doodle Classifier</h1>
+  <p class="sub">Latih CNN untuk mengenali coretan Anda</p>
+
+  <div class="container">
+    <div class="panel stats-panel">
+      <div>
+        <h3>📊 Statistik Model</h3>
+        <div class="stat"><strong>Iterasi:</strong> <span id="iteration">0</span></div>
+        <div class="stat"><strong>Akurasi:</strong> <span id="accuracy">-</span></div>
+        <div class="stat"><strong>Kerugian:</strong> <span id="loss">-</span></div>
+      </div>
+      <button id="trainBtn" style="margin-top: 20px;">🚀 Latih Model</button>
+    </div>
+
+    <div class="panel canvas-panel">
+      <div>
+        <h3>🎯 Gambar: <span id="targetWord">-</span></h3>
+        <canvas id="myCanvas" width="450" height="450" style="touch-action: none;"></canvas>
+        <p class="prediction">Prediksi: <span id="prediction">-</span></p>
+      </div>
+      <div class="controls">
+        <button id="clearBtn">🧹 Hapus Gambar</button>
+        <button id="startBtn">🎮 Mulai</button>
+        <button id="stopBtn" style="display: none; background-color: #e74c3c;">🛑 Berhenti</button>
+        <button id="skipBtn" style="display:none;">⏩ Lewati</button>
+      </div>
+      <div id="timer" style="font-size: 20px; margin-bottom: 10px;"></div>
+    </div>
+
+    <div class="panel history-panel">
+      <h3>📜 Riwayat</h3>
+      <div class="history-scroll-container">
+        <div id="historyList">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const NUM_CLASSES = 10;
+    const classNames = ['bee', 'candle', 'car', 'clock', 'fish', 'guitar', 'octopus', 'snowman', 'tree', 'umbrella'];
+    const cnn = new CNN(NUM_CLASSES);
+
+    const iterationEl = document.getElementById('iteration');
+    const accuracyEl = document.getElementById('accuracy');
+    const lossEl = document.getElementById('loss');
+    const predictionEl = document.getElementById('prediction');
+    const targetWordEl = document.getElementById('targetWord');
+    const timerEl = document.getElementById('timer');
+    const skipBtn = document.getElementById('skipBtn');
+    const clearBtnElement = document.getElementById('clearBtn');
+    const historyList = document.getElementById('historyList');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const historyScrollContainer = document.querySelector('.history-scroll-container');
+
+    let currentTarget = '';
+    let lastPrediction = '';
+    let timerInterval = null;
+    let gameActive = false;
+
+    async function loadDataset() {
+      for (let i = 0; i < classNames.length; i++) {
+        const response = await fetch(`./libs/data/${classNames[i]}.bin`);
+        const buffer = await response.arrayBuffer();
+        const imageBuffer = new Uint8Array(buffer);
+        cnn.splitDataset(imageBuffer, i);
+      }
+    }
+
+    document.getElementById('trainBtn').addEventListener('click', async () => {
+      await loadDataset();
+      const originalFit = cnn.model.fit.bind(cnn.model);
+
+      cnn.model.fit = async function (...args) {
+        const history = await originalFit(...args);
+        const acc = history.history.acc || (history.history.accuracy && history.history.accuracy[0]);
+        const loss = history.history.loss[0];
+
+        iterationEl.textContent = cnn.trainIteration;
+        accuracyEl.textContent = `${(acc * 100).toFixed(2)}%`;
+        lossEl.textContent = loss.toFixed(4);
+
+        return history;
+      };
+
+      await cnn.train();
+      startBtn.style.display = 'inline-block'; // Tampilkan tombol mulai setelah pelatihan
+    });
+
+    function pickNewTarget() {
+      currentTarget = classNames[Math.floor(Math.random() * classNames.length)];
+      targetWordEl.textContent = currentTarget;
+      predictionEl.textContent = '-';
+      lastPrediction = '';
+      painter.clear();
+    }
+
+    function speakOnce(prediction) {
+      if (prediction === lastPrediction) return;
+      lastPrediction = prediction;
+
+      const isCorrect = prediction === currentTarget;
+      if (isCorrect && gameActive) {
+        addHistory(currentTarget, prediction, isCorrect);
+        let message = `Oh! I know... it's a ${prediction}!`;
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.onend = () => {
+          setTimeout(pickNewTargetAndStartTimer, 1000);
+        };
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        clearInterval(timerInterval);
+      } else {
+        let message = ` Hmm... is it a ${prediction}?`;
+        const utterance = new SpeechSynthesisUtterance(message);
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        // Tidak langsung lanjut jika salah dan tidak mencatat di history
+      }
+    }
+
+    class Painter {
+      constructor(canvasId, cnn) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext("2d");
+        this.isDrawing = false;
+        this.cnn = cnn;
+
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.lineWidth = 7;
+        this.ctx.lineCap = "round";
+        this.ctx.strokeStyle = "black";
+
+        this.addListeners();
+      }
+
+      addListeners() {
+        // Event mouse
+        this.canvas.addEventListener("mousedown", (e) => {
+          this.isDrawing = true;
+          this.ctx.beginPath();
+          this.ctx.moveTo(e.offsetX, e.offsetY);
+        });
+
+        this.canvas.addEventListener("mousemove", (e) => {
+          if (this.isDrawing) {
+            this.ctx.lineTo(e.offsetX, e.offsetY);
+            this.ctx.stroke();
+          }
+        });
+
+        this.canvas.addEventListener("mouseup", async () => {
+          this.isDrawing = false;
+          await this.predictDrawing();
+        });
+
+        this.canvas.addEventListener("mouseleave", () => {
+          this.isDrawing = false;
+        });
+
+        // Event sentuh untuk responsivitas seluler
+        this.canvas.addEventListener("touchstart", (e) => {
+          e.preventDefault(); // Mencegah pengguliran
+          this.isDrawing = true;
+          const touch = e.touches[0];
+          const rect = this.canvas.getBoundingClientRect();
+          this.ctx.beginPath();
+          this.ctx.ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        }, {
+          passive: false
+        });
+
+        this.canvas.addEventListener("touchmove", (e) => {
+          e.preventDefault(); // Mencegah pengguliran
+          if (this.isDrawing) {
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            this.ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+            this.ctx.stroke();
+          }
+        }, {
+          passive: false
+        });
+
+        this.canvas.addEventListener("touchend", async () => {
+          this.isDrawing = false;
+          await this.predictDrawing();
+        });
+      }
+
+      clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        predictionEl.textContent = '-';
+        lastPrediction = '';
+      }
+
+      async predictDrawing() {
+        const smallCanvas = document.createElement("canvas");
+        smallCanvas.width = 28;
+        smallCanvas.height = 28;
+        const smallCtx = smallCanvas.getContext("2d");
+
+        smallCtx.drawImage(this.canvas, 0, 0, 28, 28);
+        const imgData = smallCtx.getImageData(0, 0, 28, 28);
+        const pixels = Float32Array.from(imgData.data)
+          .filter((_, i) => i % 4 === 0)
+          .map(v => (255 - v) / 255);
+
+        const input = tf.tensor4d(pixels, [1, 28, 28, 1]);
+        const prediction = await this.cnn.model.predict(input).data();
+        input.dispose();
+
+        const maxIndex = prediction.indexOf(Math.max(...prediction));
+        const predictedLabel = classNames[maxIndex];
+        predictionEl.textContent = predictedLabel;
+
+        // Check if the prediction is correct and automatically advance
+        const isCorrect = predictedLabel === currentTarget;
+        if (isCorrect && gameActive) {
+          speakOnce(predictedLabel); // This will handle adding history and advancing
+        } else {
+          speakOnce(predictedLabel);
+        }
+      }
+    }
+
+    const painter = new Painter("myCanvas", cnn);
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      painter.clear();
+    });
+
+    startBtn.addEventListener("click", () => {
+      gameActive = true;
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+      pickNewTargetAndStartTimer();
+      skipBtn.style.display = 'inline-block';
+    });
+
+    stopBtn.addEventListener("click", () => {
+      gameActive = false;
+      stopGame();
+    });
+
+    skipBtn.addEventListener("click", () => {
+      if (gameActive) {
+        clearInterval(timerInterval);
+        addHistory(currentTarget, 'dilewati', false, 'dilewati'); // Tambahkan 'dilewati' sebagai reason
+        pickNewTargetAndStartTimer();
+      }
+    });
+
+    function pickNewTargetAndStartTimer() {
+      pickNewTarget();
+      startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      if (!gameActive) return; // Hentikan timer jika game tidak aktif
+      let countdown = 20;
+      updateTimer(countdown);
+      timerInterval = setInterval(() => {
+        countdown--;
+        updateTimer(countdown);
+        if (countdown <= 0 && gameActive) {
+          clearInterval(timerInterval);
+          addHistory(currentTarget, 'waktu habis', false, 'waktu habis'); // Catat waktu habis
+          pickNewTargetAndStartTimer(); // Lanjut ke soal berikutnya karena waktu habis
+        }
+      }, 1000);
+    }
+
+    function updateTimer(sec) {
+      timerEl.textContent = `⏰ Waktu: ${sec}s`;
+    }
+
+    function addHistory(target, prediction, correct, reason) {
+      // Hanya tambahkan ke riwayat jika jawaban benar atau waktu habis/dilewati
+      if (correct || reason === 'waktu habis' || reason === 'dilewati') {
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        const image = painter.canvas.toDataURL(); // Dapatkan gambar dari kanvas
+        let predictionText = prediction;
+        let textColorClass = '';
+
+        if (correct) {
+          textColorClass = 'correct';
+        } else if (reason === 'waktu habis' || reason === 'dilewati') {
+          textColorClass = 'incorrect';
+          predictionText = reason === 'waktu habis' ? 'Waktu Habis' : 'Dilewati';
+        }
+
+        historyItem.innerHTML = `
+            <div class="history-image"><img src="${image}" alt="doodle" width="70" height="70"></div>
+            <span>Target: ${target}</span> - <span>Prediksi: <span class="${textColorClass}">${predictionText}</span></span>
+        `;
+        historyList.prepend(historyItem);
+        // historyList.scrollTop = 0; // HAPUS BARIS INI
+      }
+    }
+    function stopGame() {
+      clearInterval(timerInterval);
+      targetWordEl.textContent = '-';
+      predictionEl.textContent = '-';
+      timerEl.textContent = '';
+      painter.clear();
+      startBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
+      skipBtn.style.display = 'none';
+      gameActive = false;
+    }
+
+    // Inisialisasi scroll ke atas
+    historyList.scrollTop = 0;
+  </script>
+
+</body>
+
+</html>
